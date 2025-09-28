@@ -1,5 +1,5 @@
 {
-  "name": "idea_link",
+  "name": "idea_market",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
@@ -9,10 +9,21 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-navigation/bottom-tabs": "^7.4.7",
+    "@react-navigation/native": "^7.1.17",
+    "@react-navigation/native-stack": "^7.3.26",
+    "@supabase/supabase-js": "^2.58.0",
+    "@types/styled-components-react-native": "^5.2.5",
     "expo": "~54.0.10",
+    "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
-    "react-native": "0.81.4"
+    "react-dom": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "styled-components": "^6.1.19"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
