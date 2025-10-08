@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.hyeonjun1968.idea-market"
+      "bundleIdentifier": "com.hyeonjun1968.idea-market",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "아이디어에 이미지를 추가하기 위해 사진 라이브러리 접근이 필요합니다.",
+        "NSPhotoLibraryAddUsageDescription": "선택한 이미지를 저장하기 위해 사진 라이브러리 접근이 필요합니다."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,6 +32,14 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-font"]
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "아이디어에 이미지를 추가하기 위해 사진 라이브러리 접근이 필요합니다."
+        }
+      ]
+    ]
   }
 }

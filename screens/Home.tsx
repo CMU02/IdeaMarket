@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { View, FlatList } from "react-native";
 import styled from "styled-components/native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import HomeHeader from "../components/home/HomeHeader";
 import CategoryTabs from "../components/home/CategoryTabs";
 import IdeaCard, { IdeaCardData } from "../components/home/IdeaCard";
+import { MainStackList } from "../navigations/MainStack";
 
 const Container = styled(View)`
   flex: 1;
@@ -61,7 +64,10 @@ const MOCK_IDEAS: IdeaCardData[] = [
 
 const CATEGORIES = ["전체", "IT", "사업", "투자"];
 
+type HomeNavigationProp = NativeStackNavigationProp<MainStackList>;
+
 export default function Home() {
+  const navigation = useNavigation<HomeNavigationProp>();
   const [selectedCategory, setSelectedCategory] = useState("업로드 순");
   const [activeTab, setActiveTab] = useState("전체");
 
@@ -86,8 +92,7 @@ export default function Home() {
   };
 
   const handleWritePress = () => {
-    console.log("글쓰기");
-    // TODO: 글쓰기 화면으로 이동
+    navigation.navigate("NewIdea");
   };
 
   const handleIdeaPress = (id: string) => {

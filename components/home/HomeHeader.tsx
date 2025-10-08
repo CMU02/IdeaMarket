@@ -20,7 +20,7 @@ const LeftSection = styled(View)`
 
 const CategoryText = styled(Text)`
   font-size: 18px;
-  font-weight: 600;
+  font-family: "Paperlogy-SemiBold";
   color: white;
 `;
 
