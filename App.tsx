@@ -2,25 +2,35 @@ import "react-native-url-polyfill/auto";
 
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import AuthStack from "./navigations/AuthStack";
-import FontLoader from "./components/FontLoader";
 import { StatusBar } from "expo-status-bar";
-import AuthProiver from "./providers/AuthProvider";
+import FontLoader from "./components/FontLoader";
 import { useAuthContext } from "./hooks/UseAuthContext";
+import AuthStack from "./navigations/AuthStack";
 import MainStack from "./navigations/MainStack";
+import AuthProvider from "./providers/AuthProvider";
+
+function Navigation() {
+  const { isLoggedIn, isLoading } = useAuthContext();
+
+  // 로딩 중일 때는 빈 화면 또는 로딩 화면 표시
+  if (isLoading) {
+    return null; // 또는 <LoadingScreen />
+  }
+
+  return isLoggedIn ? <MainStack /> : <AuthStack />;
+}
 
 export default function App() {
-  const { isLoggedIn, session } = useAuthContext();
   return (
-    <AuthProiver>
+    <AuthProvider>
       <SafeAreaProvider>
         <NavigationContainer>
           <FontLoader>
             <StatusBar style="auto" />
-            {isLoggedIn ? <MainStack /> : <AuthStack />}
+            <Navigation />
           </FontLoader>
         </NavigationContainer>
       </SafeAreaProvider>
-    </AuthProiver>
+    </AuthProvider>
   );
 }

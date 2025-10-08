@@ -15,7 +15,6 @@ const ButtonContainer = styled(TouchableOpacity)<{ disabled?: boolean }>`
   border-radius: 8px;
   justify-content: center;
   align-items: center;
-  margin: 0 12px;
 `;
 
 const ButtonText = styled(Text)`
