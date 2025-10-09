@@ -112,6 +112,7 @@ export default function VerifyEmail() {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [timer, setTimer] = useState(300); // 5분 = 300초
+  const [retryTimer, setRetryTimer] = useState(0); // 재전송 대기 시간
   const [isVerified, setIsVerified] = useState(false);
   const [showAgreeModal, setShowAgreeModal] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -127,6 +128,17 @@ export default function VerifyEmail() {
     return () => clearInterval(interval);
   }, [emailSent, timer, isVerified]);
 
+  // 재전송 타이머 카운트다운
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (retryTimer > 0) {
+      interval = setInterval(() => {
+        setRetryTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [retryTimer]);
+
   // 타이머 포맷 (MM:SS)
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -137,32 +149,53 @@ export default function VerifyEmail() {
   };
 
   const handleSendVerification = async () => {
+    if (retryTimer > 0) {
+      Alert.alert(
+        "잠시만 기다려주세요",
+        `${retryTimer}초 후에 다시 시도할 수 있습니다.`
+      );
+      return;
+    }
+
     setLoading(true);
     try {
-      // 먼저 회원가입 진행
-      const signUpResult = await signUpWithEmail(
-        initialEmail.trim(),
-        password,
-        {
-          displayName,
-        }
-      );
+      // 이미 회원가입이 되어있지 않은 경우에만 회원가입 진행
+      if (!userId) {
+        const signUpResult = await signUpWithEmail(
+          initialEmail.trim(),
+          password,
+          {
+            displayName,
+          }
+        );
 
-      if (signUpResult.error || !signUpResult.userId) {
-        Alert.alert("회원가입 실패", signUpResult.error || "알 수 없는 오류");
-        return;
+        if (signUpResult.error || !signUpResult.userId) {
+          Alert.alert("회원가입 실패", signUpResult.error || "알 수 없는 오류");
+          return;
+        }
+
+        setUserId(signUpResult.userId);
       }
 
-      setUserId(signUpResult.userId);
-
-      // 회원가입 성공 후 이메일 인증 코드 전송
+      // 이메일 인증 코드 전송
       const sendResult = await sendEmailVerificationCode(initialEmail.trim());
 
       if (!sendResult.success) {
-        Alert.alert(
-          "오류",
-          sendResult.error || "인증 코드 전송에 실패했습니다."
-        );
+        // 재전송 대기 시간 에러 처리
+        if (sendResult.error?.includes("60 seconds")) {
+          const match = sendResult.error.match(/(\d+) seconds/);
+          const waitTime = match ? parseInt(match[1]) : 60;
+          setRetryTimer(waitTime);
+          Alert.alert(
+            "잠시만 기다려주세요",
+            `보안을 위해 ${waitTime}초 후에 다시 시도할 수 있습니다.`
+          );
+        } else {
+          Alert.alert(
+            "오류",
+            sendResult.error || "인증 코드 전송에 실패했습니다."
+          );
+        }
         return;
       }
 
@@ -172,6 +205,7 @@ export default function VerifyEmail() {
       );
       setEmailSent(true);
       setTimer(300);
+      setRetryTimer(60); // 재전송은 60초 후 가능
     } catch (error) {
       Alert.alert("오류", "인증 코드 전송 중 문제가 발생했습니다.");
       console.error("이메일 인증 에러:", error);
@@ -281,9 +315,15 @@ export default function VerifyEmail() {
                 </EmailDisplayBox>
                 <SmallButtonWrapper>
                   <SmallButton
-                    title="인증"
+                    title={
+                      retryTimer > 0
+                        ? `${retryTimer}초`
+                        : emailSent
+                        ? "재전송"
+                        : "인증"
+                    }
                     onPress={handleSendVerification}
-                    disabled={loading || emailSent}
+                    disabled={loading || retryTimer > 0}
                   />
                 </SmallButtonWrapper>
               </InputWithButton>
