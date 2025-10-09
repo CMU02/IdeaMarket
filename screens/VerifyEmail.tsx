@@ -12,18 +12,17 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import styled from "styled-components";
 import Agree from "../components/Agree";
 import PrimaryButton from "../components/social-auth-buttons/PrimaryButton";
 import SmallButton from "../components/social-auth-buttons/SmallButton";
-import { supabase } from "../lib/Supabase";
 import { AuthStackList } from "../navigations/AuthStack";
 import { defaultColor } from "../utils/Color";
-import { validateEmail } from "../utils/authErrorHandler";
 import {
   saveTermsAgreement,
   signUpWithEmail,
+  sendEmailVerificationCode,
+  verifyEmailCode,
 } from "../lib/services/AuthService";
 
 const Container = styled(ScrollView)`
@@ -106,7 +105,6 @@ type VerifyEmailRouteProp = RouteProp<AuthStackList, "VerifyEmail">;
 
 export default function VerifyEmail() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackList>>();
-  const { top, bottom } = useSafeAreaInsets();
   const route = useRoute<VerifyEmailRouteProp>();
   const { email: initialEmail, password, displayName } = route.params;
 
@@ -141,14 +139,30 @@ export default function VerifyEmail() {
   const handleSendVerification = async () => {
     setLoading(true);
     try {
-      // Supabase 이메일 인증 코드 전송
-      const { error } = await supabase.auth.signInWithOtp({
-        email: initialEmail.trim(),
-      });
+      // 먼저 회원가입 진행
+      const signUpResult = await signUpWithEmail(
+        initialEmail.trim(),
+        password,
+        {
+          displayName,
+        }
+      );
 
-      if (error) {
-        Alert.alert("오류", "인증 코드 전송에 실패했습니다.");
-        console.error("이메일 인증 에러:", error);
+      if (signUpResult.error || !signUpResult.userId) {
+        Alert.alert("회원가입 실패", signUpResult.error || "알 수 없는 오류");
+        return;
+      }
+
+      setUserId(signUpResult.userId);
+
+      // 회원가입 성공 후 이메일 인증 코드 전송
+      const sendResult = await sendEmailVerificationCode(initialEmail.trim());
+
+      if (!sendResult.success) {
+        Alert.alert(
+          "오류",
+          sendResult.error || "인증 코드 전송에 실패했습니다."
+        );
         return;
       }
 
@@ -179,33 +193,20 @@ export default function VerifyEmail() {
 
     setLoading(true);
     try {
-      // Supabase OTP 검증 (6자리 코드)
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: initialEmail.trim(),
-        token: verificationCode.trim(),
-        type: "email",
-      });
-
-      if (verifyError) {
-        Alert.alert("인증 실패", "인증 코드가 올바르지 않습니다.");
-        console.error("인증 코드 검증 에러:", verifyError);
-        return;
-      }
-      // 이메일 인증 성공 후 회원가입 진행
-      const signUpResult = await signUpWithEmail(
+      // 인증 코드 검증
+      const verifyResult = await verifyEmailCode(
         initialEmail.trim(),
-        password,
-        {
-          displayName,
-        }
+        verificationCode.trim()
       );
 
-      if (signUpResult.error || !signUpResult.userId) {
-        Alert.alert("회원가입 실패", signUpResult.error || "알 수 없는 오류");
+      if (!verifyResult.success) {
+        Alert.alert(
+          "인증 실패",
+          verifyResult.error || "인증 코드가 올바르지 않습니다."
+        );
         return;
       }
 
-      setUserId(signUpResult.userId);
       setIsVerified(true);
       Alert.alert("인증 성공", "이메일 인증이 완료되었습니다.");
     } catch (error) {
@@ -328,7 +329,7 @@ export default function VerifyEmail() {
               <PrimaryButton
                 title="약관 동의"
                 onPress={handleAgreeTerms}
-                disabled={loading}
+                disabled={loading || !isVerified}
               />
             </ButtonContainer>
           </ContentContainer>
