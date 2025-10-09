@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import styled from "styled-components/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,12 +11,18 @@ const CardContainer = styled(TouchableOpacity)`
   border-bottom-color: #f0f0f0;
 `;
 
-const ImagePlaceholder = styled(View)`
+const ImageContainer = styled(View)<{ backgroundColor?: string }>`
   width: 120px;
   height: 120px;
   border-radius: 8px;
-  background-color: #d9d9d9;
+  background-color: ${(props) => props.backgroundColor || "#d9d9d9"};
   margin-right: 16px;
+  overflow: hidden;
+`;
+
+const IdeaImage = styled(Image)`
+  width: 100%;
+  height: 100%;
 `;
 
 const ContentContainer = styled(View)`
@@ -98,6 +104,31 @@ export interface IdeaCardData {
   comments: number;
   likes: number;
   imageUrl?: string;
+  imageUrls?: string[];
+  tags?: string[];
+}
+
+// 파스텔톤 색상 배열
+const PASTEL_COLORS = [
+  "#FFE5E5", // 파스텔 핑크
+  "#E5F3FF", // 파스텔 블루
+  "#FFF5E5", // 파스텔 오렌지
+  "#E5FFE5", // 파스텔 그린
+  "#F5E5FF", // 파스텔 퍼플
+  "#FFFFE5", // 파스텔 옐로우
+  "#E5FFFF", // 파스텔 시안
+  "#FFE5F5", // 파스텔 로즈
+];
+
+/**
+ * ID를 기반으로 일관된 파스텔 색상 반환
+ */
+function getPastelColor(id: string): string {
+  const hash = id.split("").reduce((acc, char) => {
+    return char.charCodeAt(0) + ((acc << 5) - acc);
+  }, 0);
+  const index = Math.abs(hash) % PASTEL_COLORS.length;
+  return PASTEL_COLORS[index];
 }
 
 interface IdeaCardProps {
@@ -106,9 +137,25 @@ interface IdeaCardProps {
 }
 
 export default function IdeaCard({ data, onPress }: IdeaCardProps) {
+  // 첫 번째 이미지 URL 또는 파스텔 색상 결정
+  const imageUrl = useMemo(() => {
+    if (data.imageUrls && data.imageUrls.length > 0) {
+      return data.imageUrls[0];
+    }
+    return data.imageUrl;
+  }, [data.imageUrls, data.imageUrl]);
+
+  const backgroundColor = useMemo(() => {
+    return getPastelColor(data.id);
+  }, [data.id]);
+
   return (
     <CardContainer onPress={() => onPress(data.id)}>
-      <ImagePlaceholder />
+      <ImageContainer backgroundColor={!imageUrl ? backgroundColor : undefined}>
+        {imageUrl && (
+          <IdeaImage source={{ uri: imageUrl }} resizeMode="cover" />
+        )}
+      </ImageContainer>
       <ContentContainer>
         <TopSection>
           <Title numberOfLines={1}>{data.title}</Title>

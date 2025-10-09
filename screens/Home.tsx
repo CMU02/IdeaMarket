@@ -1,68 +1,24 @@
 import React, { useState } from "react";
-import { View, FlatList } from "react-native";
+import { View, FlatList, ActivityIndicator } from "react-native";
 import styled from "styled-components/native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import HomeHeader from "../components/home/HomeHeader";
 import CategoryTabs from "../components/home/CategoryTabs";
 import IdeaCard, { IdeaCardData } from "../components/home/IdeaCard";
 import { MainStackList } from "../navigations/MainStack";
+import { fetchIdeas, filterIdeasByTag } from "../utils/ideaUtils";
 
 const Container = styled(View)`
   flex: 1;
   background-color: #ffffff;
 `;
 
-// 임시 데이터
-const MOCK_IDEAS: IdeaCardData[] = [
-  {
-    id: "1",
-    title: "Idea Market",
-    description: "아이디어가 생각 만나는 사람들 의한 마켓",
-    price: "50,000원",
-    status: "모집중",
-    comments: 5,
-    likes: 3,
-  },
-  {
-    id: "2",
-    title: "Game World",
-    description: "게임을 손쉽게 만드는 세상",
-    price: "0원",
-    status: "마감",
-    comments: 8,
-    likes: 5,
-  },
-  {
-    id: "3",
-    title: "Game World",
-    description: "게임을 손쉽게 만드는 세상",
-    price: "0원",
-    status: "마감",
-    comments: 2,
-    likes: 3,
-  },
-  {
-    id: "4",
-    title: "Game World",
-    description: "게임을 손쉽게 만드는 세상",
-    price: "0원",
-    status: "마감",
-    comments: 1,
-    likes: 1,
-  },
-  {
-    id: "5",
-    title: "Game World",
-    description: "게임을 손쉽게 만드는 세상",
-    price: "0원",
-    status: "마감",
-    comments: 3,
-    likes: 2,
-  },
-];
-
-const CATEGORIES = ["전체", "IT", "사업", "투자"];
+const LoadingContainer = styled(View)`
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+`;
 
 type HomeNavigationProp = NativeStackNavigationProp<MainStackList>;
 
@@ -70,6 +26,36 @@ export default function Home() {
   const navigation = useNavigation<HomeNavigationProp>();
   const [selectedCategory, setSelectedCategory] = useState("업로드 순");
   const [activeTab, setActiveTab] = useState("전체");
+  const [categories, setCategories] = useState<string[]>(["전체"]);
+  const [allIdeas, setAllIdeas] = useState<IdeaCardData[]>([]);
+  const [filteredIdeas, setFilteredIdeas] = useState<IdeaCardData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadIdeas = async () => {
+    try {
+      setLoading(true);
+      const { ideas, categories: fetchedCategories } = await fetchIdeas();
+      setAllIdeas(ideas);
+      setFilteredIdeas(ideas);
+      setCategories(fetchedCategories);
+    } catch (error) {
+      console.error("아이디어 가져오기 실패:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTagSelect = (tag: string) => {
+    setActiveTab(tag);
+    const filtered = filterIdeasByTag(allIdeas, tag);
+    setFilteredIdeas(filtered);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadIdeas();
+    }, [])
+  );
 
   const handleFilterPress = () => {
     console.log("필터 버튼 클릭");
@@ -87,8 +73,7 @@ export default function Home() {
   };
 
   const handleRefresh = () => {
-    console.log("새로고침");
-    // TODO: 데이터 새로고침
+    loadIdeas();
   };
 
   const handleWritePress = () => {
@@ -96,9 +81,26 @@ export default function Home() {
   };
 
   const handleIdeaPress = (id: string) => {
-    console.log("아이디어 클릭:", id);
-    // TODO: 아이디어 상세 화면으로 이동
+    navigation.navigate("Detail", { ideaId: id });
   };
+
+  if (loading) {
+    return (
+      <Container>
+        <HomeHeader
+          selectedCategory={selectedCategory}
+          onFilterPress={handleFilterPress}
+          onSearchPress={handleSearchPress}
+          onNotificationPress={handleNotificationPress}
+          onRefresh={handleRefresh}
+          onWritePress={handleWritePress}
+        />
+        <LoadingContainer>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </LoadingContainer>
+      </Container>
+    );
+  }
 
   return (
     <Container>
@@ -112,17 +114,19 @@ export default function Home() {
       />
       <View>
         <CategoryTabs
-          categories={CATEGORIES}
+          categories={categories}
           selectedCategory={activeTab}
-          onSelectCategory={setActiveTab}
+          onSelectCategory={handleTagSelect}
         />
       </View>
       <FlatList
-        data={MOCK_IDEAS}
+        data={filteredIdeas}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <IdeaCard data={item} onPress={handleIdeaPress} />
         )}
+        refreshing={loading}
+        onRefresh={handleRefresh}
       />
     </Container>
   );
