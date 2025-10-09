@@ -1,6 +1,8 @@
 import React from "react";
-import { View, Text, TouchableOpacity, TextInput } from "react-native";
+import { View, Text, TextInput } from "react-native";
 import styled from "styled-components/native";
+import Switch from "../common/Switch";
+import { defaultColor } from "../../utils/Color";
 
 const Container = styled(View)`
   margin-bottom: 20px;
@@ -13,25 +15,8 @@ const Label = styled(Text)`
   margin-bottom: 8px;
 `;
 
-const OptionContainer = styled(View)`
-  flex-direction: row;
-  gap: 12px;
+const SwitchWrapper = styled(View)`
   margin-bottom: 12px;
-`;
-
-const OptionButton = styled(TouchableOpacity)<{ selected: boolean }>`
-  flex: 1;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid ${(props) => (props.selected ? "#5BC0EB" : "#e0e0e0")};
-  background-color: ${(props) => (props.selected ? "#E8F6FC" : "#ffffff")};
-  align-items: center;
-`;
-
-const OptionText = styled(Text)<{ selected: boolean }>`
-  font-size: 14px;
-  font-weight: ${(props) => (props.selected ? "600" : "400")};
-  color: ${(props) => (props.selected ? "#5BC0EB" : "#666666")};
 `;
 
 const PriceInput = styled(TextInput)`
@@ -41,6 +26,12 @@ const PriceInput = styled(TextInput)`
   font-size: 14px;
   color: #09182a;
   background-color: #ffffff;
+`;
+const SwitchContainer = styled(View)`
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
 `;
 
 interface PriceSelectorProps {
@@ -58,17 +49,20 @@ export default function PriceSelector({
 }: PriceSelectorProps) {
   return (
     <Container>
-      <Label>
-        가격 설정 <Text style={{ color: "#FF0000" }}>*</Text>
-      </Label>
-      <OptionContainer>
-        <OptionButton selected={isFree} onPress={() => onTypeChange(true)}>
-          <OptionText selected={isFree}>무료</OptionText>
-        </OptionButton>
-        <OptionButton selected={!isFree} onPress={() => onTypeChange(false)}>
-          <OptionText selected={!isFree}>유료</OptionText>
-        </OptionButton>
-      </OptionContainer>
+      <SwitchContainer>
+        <Label>
+          가격 설정 <Text style={{ color: "#FF0000" }}>*</Text>
+        </Label>
+        <Switch
+          leftLabel="무료"
+          rightLabel="유료"
+          isLeft={isFree}
+          onToggle={onTypeChange}
+          leftColor={defaultColor.btnColor}
+          rightColor={defaultColor.mainColor}
+        />
+      </SwitchContainer>
+
       {!isFree && (
         <PriceInput
           placeholder="가격을 입력하세요 (원)"

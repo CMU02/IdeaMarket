@@ -17,7 +17,7 @@ const Label = styled(Text)`
 const UploadButton = styled(TouchableOpacity)`
   border: 2px dashed #e0e0e0;
   border-radius: 8px;
-  padding: 40px 20px;
+  padding: 25px 10px;
   align-items: center;
   justify-content: center;
   background-color: #fafafa;
@@ -32,7 +32,6 @@ const UploadText = styled(Text)`
 const ImagesContainer = styled(ScrollView)`
   flex-direction: row;
   margin-top: 12px;
-  gap: 12px;
 `;
 
 const ImageWrapper = styled(View)`
@@ -78,7 +77,14 @@ export default function ImageUploader({
         <UploadText>이미지를 업로드하세요</UploadText>
       </UploadButton>
       {images.length > 0 && (
-        <ImagesContainer horizontal showsHorizontalScrollIndicator={false}>
+        <ImagesContainer
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            gap: 10,
+            marginTop: 8,
+          }}
+        >
           {images.map((image, index) => (
             <ImageWrapper key={index}>
               <UploadedImage source={{ uri: image }} />

@@ -1,11 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, processLock } from "@supabase/supabase-js";
 
 // 환경변수에서 Supabase URL과 익명 키를 가져옴 (없으면 기본값 사용)
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "SUPABASE_URL";
-const SUPABASE_ANON_KEY =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "SUPABASE_ANON_KEY";
-console.log("Supabase Config:", SUPABASE_URL, SUPABASE_ANON_KEY);
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
+const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_KEY ?? "";
 
 // AsyncStorage를 사용한 스토리지 어댑터 (세션 정보 저장용)
 const ExpoSecureStoreAdater = {
@@ -21,25 +19,12 @@ const ExpoSecureStoreAdater = {
 };
 
 // Supabase 클라이언트 생성 및 설정
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     storage: ExpoSecureStoreAdater, // 커스텀 스토리지 어댑터 사용
     autoRefreshToken: true, // 토큰 자동 갱신
     persistSession: true, // 세션 지속성 유지
     detectSessionInUrl: false, // URL에서 세션 감지 비활성화 (모바일 앱용)
-  },
-  global: {
-    fetch: (url, options) => {
-      return fetch(url, {
-        ...options,
-        headers: {
-          ...options?.headers,
-          "Content-Type": "application/json",
-        },
-      }).catch((error) => {
-        console.error("Network error:", error);
-        throw error;
-      });
-    },
+    lock: processLock,
   },
 });

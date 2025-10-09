@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import styled from "styled-components/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,11 +15,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { defaultColor } from "../utils/Color";
 import Input from "../components/common/Input";
-import Button from "../components/common/Button";
 import PriceSelector from "../components/newIdea/PriceSelector";
 import AIContentGenerator from "../components/newIdea/AIContentGenerator";
 import TagInput from "../components/newIdea/TagInput";
 import ImageUploader from "../components/newIdea/ImageUploader";
+import { useNavigation } from "@react-navigation/native";
+import { MainStackList } from "../navigations/MainStack";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { uploadIdea } from "../lib/services/Upload";
+import { convertHeicToJpg, isHeicImage } from "../utils/imageConverter";
 
 const Container = styled(View)`
   flex: 1;
@@ -43,19 +48,23 @@ const BackButton = styled(TouchableOpacity)`
   padding: 4px;
 `;
 
+const CompleteButton = styled(TouchableOpacity)`
+  padding: 4px;
+`;
+
+const CompleteText = styled(Text)`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${defaultColor.btnColor};
+`;
+
 const ContentContainer = styled(ScrollView)`
   flex: 1;
   padding: 20px 16px;
 `;
 
-const ButtonContainer = styled(View)`
-  padding: 16px;
-  border-top-width: 1px;
-  border-top-color: #e0e0e0;
-  background-color: #ffffff;
-`;
-
 export default function NewIdea() {
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackList>>();
   const { top } = useSafeAreaInsets();
 
   // Form states
@@ -66,10 +75,10 @@ export default function NewIdea() {
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [images, setImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleBack = () => {
-    console.log("뒤로가기");
-    // TODO: 뒤로가기 구현
+    navigation.goBack();
   };
 
   const handleAIGenerate = () => {
@@ -98,14 +107,34 @@ export default function NewIdea() {
 
       // 이미지 선택
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsMultipleSelection: true,
         quality: 0.8,
         allowsEditing: false,
+        base64: true,
       });
 
       if (!result.canceled && result.assets) {
-        const newImages = result.assets.map((asset) => asset.uri);
+        const imagePromises = result.assets.map(async (asset) => {
+          // HEIC 이미지인 경우 JPG로 변환
+          if (isHeicImage(asset.uri, asset.mimeType)) {
+            try {
+              return await convertHeicToJpg(asset.uri);
+            } catch (error) {
+              console.error("HEIC 변환 오류:", error);
+              return null;
+            }
+          }
+
+          // 일반 이미지는 base64로 변환
+          if (!asset.base64) return null;
+          const mimeType = asset.mimeType || "image/jpeg";
+          return `data:${mimeType};base64,${asset.base64}`;
+        });
+
+        const newImages = (await Promise.all(imagePromises)).filter(
+          (base64): base64 is string => base64 !== null
+        );
         setImages([...images, ...newImages]);
       }
     } catch (error) {
@@ -118,9 +147,62 @@ export default function NewIdea() {
     setImages(images.filter((_, i) => i !== index));
   };
 
-  const handleUpload = () => {
-    console.log("업로드");
-    // TODO: 업로드 구현
+  const handleUpload = async () => {
+    // 유효성 검사
+    if (!title.trim()) {
+      Alert.alert("알림", "제목을 입력해주세요.");
+      return;
+    }
+
+    if (!shortDescription.trim()) {
+      Alert.alert("알림", "아이디어 간단 소개를 입력해주세요.");
+      return;
+    }
+
+    if (!content.trim()) {
+      Alert.alert("알림", "아이디어 소개글을 입력해주세요.");
+      return;
+    }
+
+    if (!isFree && !price.trim()) {
+      Alert.alert("알림", "가격을 입력해주세요.");
+      return;
+    }
+
+    if (!isFree && parseInt(price, 10) <= 0) {
+      Alert.alert("알림", "올바른 가격을 입력해주세요.");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const result = await uploadIdea({
+        title: title.trim(),
+        shortDescription: shortDescription.trim(),
+        isFree,
+        price: price.trim(),
+        content: content.trim(),
+        tags,
+        imageUris: images,
+      });
+
+      if (result.success) {
+        Alert.alert("성공", "아이디어가 업로드되었습니다.", [
+          {
+            text: "확인",
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      } else {
+        Alert.alert("오류", result.error || "업로드에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("업로드 오류:", error);
+      Alert.alert("오류", "업로드 중 오류가 발생했습니다.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -135,11 +217,17 @@ export default function NewIdea() {
             paddingBottom: 10,
           }}
         >
-          <BackButton onPress={handleBack}>
+          <BackButton onPress={handleBack} disabled={isUploading}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </BackButton>
           <HeaderTitle>새 아이디어</HeaderTitle>
-          <View style={{ width: 32 }} />
+          <CompleteButton onPress={handleUpload} disabled={isUploading}>
+            {isUploading ? (
+              <ActivityIndicator size="small" color={defaultColor.btnColor} />
+            ) : (
+              <CompleteText>완료</CompleteText>
+            )}
+          </CompleteButton>
         </HeaderContainer>
 
         <ContentContainer showsVerticalScrollIndicator={false}>
@@ -186,10 +274,6 @@ export default function NewIdea() {
             onRemoveImage={handleRemoveImage}
           />
         </ContentContainer>
-
-        <ButtonContainer>
-          <Button title="업로드" onPress={handleUpload} fullWidth />
-        </ButtonContainer>
       </Container>
     </KeyboardAvoidingView>
   );
