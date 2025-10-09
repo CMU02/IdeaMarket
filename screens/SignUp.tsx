@@ -106,7 +106,12 @@ export default function SignUp() {
       return;
     }
 
-    navigation.navigate("VerifyEmail");
+    // 회원 정보를 VerifyEmail로 전달
+    navigation.navigate("VerifyEmail", {
+      email: userId.trim(),
+      password: password.trim(),
+      displayName: nickname.trim(),
+    });
   };
 
   return (
@@ -126,7 +131,7 @@ export default function SignUp() {
             {/* 아이디 */}
             <InputContainer>
               <Input
-                placeholder="아이디"
+                placeholder="이메일"
                 placeholderTextColor="rgba(9, 24, 42, 0.5)"
                 value={userId}
                 onChangeText={setUserId}

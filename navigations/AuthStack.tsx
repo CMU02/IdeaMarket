@@ -8,7 +8,11 @@ export type AuthStackList = {
   Start: undefined;
   SignIn: undefined;
   SignUp: undefined;
-  VerifyEmail: undefined;
+  VerifyEmail: {
+    email: string;
+    password: string;
+    displayName: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<AuthStackList>();

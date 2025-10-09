@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState, useEffect } from "react";
 import {
@@ -21,6 +21,10 @@ import { supabase } from "../lib/Supabase";
 import { AuthStackList } from "../navigations/AuthStack";
 import { defaultColor } from "../utils/Color";
 import { validateEmail } from "../utils/authErrorHandler";
+import {
+  saveTermsAgreement,
+  signUpWithEmail,
+} from "../lib/services/AuthService";
 
 const Container = styled(ScrollView)`
   flex: 1;
@@ -61,6 +65,22 @@ const InputWithButtonField = styled(TextInput)`
   color: ${defaultColor.textColor};
 `;
 
+const EmailDisplayBox = styled(View)`
+  background-color: #ffffff;
+  height: 50px;
+  border-radius: 8px;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  padding: 0 15px;
+  padding-right: 60px;
+  justify-content: center;
+`;
+
+const EmailText = styled(Text)`
+  font-size: 15px;
+  font-family: "Paperlogy-SemiBold";
+  color: ${defaultColor.textColor};
+`;
+
 const SmallButtonWrapper = styled(View)`
   position: absolute;
   right: 10px;
@@ -82,17 +102,21 @@ const ButtonContainer = styled(View)`
   margin-bottom: 40px;
 `;
 
+type VerifyEmailRouteProp = RouteProp<AuthStackList, "VerifyEmail">;
+
 export default function VerifyEmail() {
   const navigation = useNavigation<NativeStackNavigationProp<AuthStackList>>();
   const { top, bottom } = useSafeAreaInsets();
+  const route = useRoute<VerifyEmailRouteProp>();
+  const { email: initialEmail, password, displayName } = route.params;
 
-  const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [timer, setTimer] = useState(300); // 5분 = 300초
   const [isVerified, setIsVerified] = useState(false);
   const [showAgreeModal, setShowAgreeModal] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   // 타이머 카운트다운
   useEffect(() => {
@@ -115,16 +139,11 @@ export default function VerifyEmail() {
   };
 
   const handleSendVerification = async () => {
-    if (!validateEmail(email)) {
-      Alert.alert("입력 오류", "올바른 이메일 형식을 입력해주세요.");
-      return;
-    }
-
     setLoading(true);
     try {
       // Supabase 이메일 인증 코드 전송
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: initialEmail.trim(),
       });
 
       if (error) {
@@ -133,7 +152,10 @@ export default function VerifyEmail() {
         return;
       }
 
-      Alert.alert("인증 코드 전송", "이메일로 인증 코드가 전송되었습니다.");
+      Alert.alert(
+        "인증 코드 전송",
+        "이메일로 6자리 인증 코드가 전송되었습니다."
+      );
       setEmailSent(true);
       setTimer(300);
     } catch (error) {
@@ -158,18 +180,32 @@ export default function VerifyEmail() {
     setLoading(true);
     try {
       // Supabase OTP 검증 (6자리 코드)
-      const { error } = await supabase.auth.verifyOtp({
-        email: email.trim(),
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: initialEmail.trim(),
         token: verificationCode.trim(),
         type: "email",
       });
 
-      if (error) {
+      if (verifyError) {
         Alert.alert("인증 실패", "인증 코드가 올바르지 않습니다.");
-        console.error("인증 코드 검증 에러:", error);
+        console.error("인증 코드 검증 에러:", verifyError);
+        return;
+      }
+      // 이메일 인증 성공 후 회원가입 진행
+      const signUpResult = await signUpWithEmail(
+        initialEmail.trim(),
+        password,
+        {
+          displayName,
+        }
+      );
+
+      if (signUpResult.error || !signUpResult.userId) {
+        Alert.alert("회원가입 실패", signUpResult.error || "알 수 없는 오류");
         return;
       }
 
+      setUserId(signUpResult.userId);
       setIsVerified(true);
       Alert.alert("인증 성공", "이메일 인증이 완료되었습니다.");
     } catch (error) {
@@ -190,17 +226,32 @@ export default function VerifyEmail() {
     setShowAgreeModal(true);
   };
 
-  const handleAgreeComplete = () => {
-    setShowAgreeModal(false);
-    Alert.alert("가입 완료", "회원가입이 완료되었습니다!", [
-      {
-        text: "확인",
-        onPress: () => {
-          // 로그인 화면으로 이동하거나 자동 로그인 처리
-          navigation.navigate("SignIn");
+  const handleAgreeComplete = async () => {
+    if (!userId) {
+      Alert.alert("오류", "사용자 정보를 찾을 수 없습니다.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 약관 동의 정보 저장
+      await saveTermsAgreement(userId);
+
+      setShowAgreeModal(false);
+      Alert.alert("가입 완료", "회원가입이 완료되었습니다!", [
+        {
+          text: "확인",
+          onPress: () => {
+            navigation.navigate("SignIn");
+          },
         },
-      },
-    ]);
+      ]);
+    } catch (error) {
+      console.error("약관 동의 저장 오류:", error);
+      Alert.alert("오류", "약관 동의 처리 중 문제가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAgreeClose = () => {
@@ -224,16 +275,9 @@ export default function VerifyEmail() {
             {/* 이메일 */}
             <InputContainer>
               <InputWithButton>
-                <InputWithButtonField
-                  placeholder="이메일"
-                  placeholderTextColor="rgba(9, 24, 42, 0.5)"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  editable={!loading && !emailSent}
-                  returnKeyType="done"
-                />
+                <EmailDisplayBox>
+                  <EmailText>{initialEmail}</EmailText>
+                </EmailDisplayBox>
                 <SmallButtonWrapper>
                   <SmallButton
                     title="인증"
