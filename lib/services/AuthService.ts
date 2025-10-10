@@ -6,7 +6,10 @@ import { supabase } from "../Supabase";
 export async function saveTermsAgreement(userId: string): Promise<void> {
   const { error } = await supabase.from("user_terms_agreement").insert({
     user_id: userId,
-    agreed: true,
+    service_terms: true,
+    privacy_policy: true,
+    location_terms: true,
+    marketing_consent: true,
     agreed_at: new Date().toISOString(),
   });
 
@@ -22,7 +25,7 @@ export async function saveTermsAgreement(userId: string): Promise<void> {
 export async function checkTermsAgreement(userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from("user_terms_agreement")
-    .select("agreed")
+    .select("service_terms, privacy_policy, location_terms, marketing_consent")
     .eq("user_id", userId)
     .single();
 
@@ -31,7 +34,14 @@ export async function checkTermsAgreement(userId: string): Promise<boolean> {
     return false;
   }
 
-  return data?.agreed || false;
+  // 모든 필수 약관에 동의했는지 확인
+  return (
+    (data?.service_terms &&
+      data?.privacy_policy &&
+      data?.location_terms &&
+      data?.marketing_consent) ||
+    false
+  );
 }
 
 /**
@@ -41,31 +51,45 @@ export async function signUpWithEmail(
   email: string,
   password: string,
   metadata?: { displayName?: string }
-): Promise<{ userId: string | null; error: string | null }> {
+): Promise<{
+  userId: string | null;
+  error: string | null;
+  session: any | null;
+}> {
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: metadata,
-        emailRedirectTo: undefined, // 이메일 확인 링크 비활성화
+        emailRedirectTo: undefined,
       },
     });
 
     if (error) {
-      return { userId: null, error: error.message };
+      return { userId: null, error: error.message, session: null };
     }
 
     if (!data.user) {
-      return { userId: null, error: "회원가입에 실패했습니다." };
+      return {
+        userId: null,
+        error: "회원가입에 실패했습니다.",
+        session: null,
+      };
     }
 
-    return { userId: data.user.id, error: null };
+    // 이메일 자동 확인 처리 (SQL 직접 실행)
+    if (data.user.id) {
+      await supabase.rpc("confirm_user_email", { user_id: data.user.id });
+    }
+
+    return { userId: data.user.id, error: null, session: data.session };
   } catch (error) {
     console.error("회원가입 오류:", error);
     return {
       userId: null,
       error: error instanceof Error ? error.message : "알 수 없는 오류",
+      session: null,
     };
   }
 }

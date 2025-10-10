@@ -14,12 +14,17 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import styled from "styled-components";
+import Agree from "../components/Agree";
 import PrimaryButton from "../components/social-auth-buttons/PrimaryButton";
 import { AuthStackList } from "../navigations/AuthStack";
 import { defaultColor } from "../utils/Color";
-import { validatePassword } from "../utils/authErrorHandler";
+import { validatePassword, validateEmail } from "../utils/authErrorHandler";
+import {
+  signUpWithEmail,
+  saveTermsAgreement,
+} from "../lib/services/AuthService";
+import { supabase } from "../lib/Supabase";
 
 const Container = styled(ScrollView)`
   flex: 1;
@@ -77,11 +82,17 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showAgreeModal, setShowAgreeModal] = useState(false);
 
   const handleAgreeTerms = () => {
     // 유효성 검사
     if (!userId.trim()) {
-      Alert.alert("입력 오류", "아이디를 입력해주세요.");
+      Alert.alert("입력 오류", "이메일을 입력해주세요.");
+      return;
+    }
+
+    if (!validateEmail(userId.trim())) {
+      Alert.alert("입력 오류", "올바른 이메일 형식을 입력해주세요.");
       return;
     }
 
@@ -106,12 +117,64 @@ export default function SignUp() {
       return;
     }
 
-    // 회원 정보를 VerifyEmail로 전달
-    navigation.navigate("VerifyEmail", {
-      email: userId.trim(),
-      password: password.trim(),
-      displayName: nickname.trim(),
-    });
+    // 약관 동의 모달 표시
+    setShowAgreeModal(true);
+  };
+
+  const handleAgreeComplete = async () => {
+    setLoading(true);
+    try {
+      // 회원가입 진행
+      const signUpResult = await signUpWithEmail(
+        userId.trim(),
+        password.trim(),
+        {
+          displayName: nickname.trim(),
+        }
+      );
+
+      if (signUpResult.error || !signUpResult.userId) {
+        Alert.alert("회원가입 실패", signUpResult.error || "알 수 없는 오류");
+        return;
+      }
+
+      // 세션이 없으면 무조건 로그인하여 세션 생성
+      if (!signUpResult.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: userId.trim(),
+          password: password.trim(),
+        });
+
+        if (signInError) {
+          console.error("자동 로그인 오류:", signInError);
+          Alert.alert("오류", "회원가입 처리 중 문제가 발생했습니다.");
+          setShowAgreeModal(false);
+          return;
+        }
+      }
+
+      // 약관 동의 정보 저장 (세션이 있으므로 auth.uid() 사용 가능)
+      await saveTermsAgreement(signUpResult.userId);
+
+      setShowAgreeModal(false);
+      Alert.alert("가입 완료", "회원가입이 완료되었습니다!", [
+        {
+          text: "확인",
+          onPress: () => {
+            navigation.navigate("SignIn");
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error("회원가입 오류:", error);
+      Alert.alert("오류", "회원가입 처리 중 문제가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAgreeClose = () => {
+    setShowAgreeModal(false);
   };
 
   return (
@@ -197,7 +260,7 @@ export default function SignUp() {
 
             <ButtonContainer>
               <PrimaryButton
-                title="인증하러 가기"
+                title="약관 동의하기"
                 onPress={handleAgreeTerms}
                 disabled={loading}
               />
@@ -205,6 +268,13 @@ export default function SignUp() {
           </ContentContainer>
         </Container>
       </TouchableWithoutFeedback>
+
+      {/* 약관 동의 모달 */}
+      <Agree
+        visible={showAgreeModal}
+        onClose={handleAgreeClose}
+        onAgree={handleAgreeComplete}
+      />
     </KeyboardAvoidingView>
   );
 }
