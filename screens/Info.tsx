@@ -1,13 +1,22 @@
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Image,
+} from "react-native";
 import styled from "styled-components/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MainStackList } from "../navigations/MainStack";
 import { defaultColor } from "../utils/Color";
 import { supabase } from "../lib/Supabase";
+import { getMyIdeas, IdeaDetail } from "../lib/services/IdeaService";
 
 const Container = styled(View)`
   flex: 1;
@@ -78,25 +87,52 @@ const Divider = styled(View)`
   margin: 16px 0;
 `;
 
-const CardGrid = styled(View)`
-  flex-direction: row;
-  gap: 16px;
+const IdeasScrollView = styled(ScrollView)`
   margin-top: 16px;
 `;
 
-const Card = styled(View)`
+const IdeasContainer = styled(View)`
+  flex-direction: row;
+  gap: 16px;
+  padding-right: 20px;
+`;
+
+const IdeaCard = styled(TouchableOpacity)`
+  width: 120px;
+`;
+
+const IdeaThumbnail = styled(View)`
   width: 120px;
   height: 120px;
   background-color: #d9d9d9;
   border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
 `;
 
-const CardLabel = styled(Text)`
+const ThumbnailImage = styled(Image)`
+  width: 100%;
+  height: 100%;
+`;
+
+const IdeaTitle = styled(Text)`
   font-size: 16px;
   font-family: "Paperlogy-SemiBold";
   color: ${defaultColor.textColor};
   text-align: center;
-  margin-top: 8px;
+`;
+
+const EmptyText = styled(Text)`
+  font-size: 14px;
+  font-family: "Paperlogy-Medium";
+  color: rgba(9, 24, 42, 0.5);
+  text-align: center;
+  padding: 40px 20px;
+`;
+
+const LoadingContainer = styled(View)`
+  padding: 40px 20px;
+  align-items: center;
 `;
 
 const SectionHeader = styled(View)`
@@ -111,10 +147,18 @@ export default function Info() {
   const navigation = useNavigation<InfoNavigationProp>();
   const { top } = useSafeAreaInsets();
   const [userEmail, setUserEmail] = React.useState<string>("");
+  const [myIdeas, setMyIdeas] = React.useState<IdeaDetail[]>([]);
+  const [loadingIdeas, setLoadingIdeas] = React.useState(true);
 
   React.useEffect(() => {
     fetchUserEmail();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchMyIdeas();
+    }, [])
+  );
 
   const fetchUserEmail = async () => {
     const {
@@ -168,8 +212,28 @@ export default function Info() {
     Alert.alert("알림", "문의하기 기능은 준비 중입니다.");
   };
 
+  const fetchMyIdeas = async () => {
+    setLoadingIdeas(true);
+    try {
+      const result = await getMyIdeas(5);
+      if (result.error) {
+        console.error("내 게시물 조회 오류:", result.error);
+      } else {
+        setMyIdeas(result.data);
+      }
+    } catch (error) {
+      console.error("fetchMyIdeas 예외:", error);
+    } finally {
+      setLoadingIdeas(false);
+    }
+  };
+
   const handleViewAllPosts = () => {
-    Alert.alert("알림", "내 게시물 전체보기 기능은 준비 중입니다.");
+    navigation.navigate("MyIdeas" as any);
+  };
+
+  const handleIdeaPress = (ideaId: string) => {
+    navigation.navigate("Detail", { ideaId });
   };
 
   const handleViewAllPurchases = () => {
@@ -214,20 +278,38 @@ export default function Info() {
             </ViewAllButton>
           </SectionHeader>
 
-          <CardGrid>
-            <View>
-              <Card />
-              <CardLabel>Idea Market</CardLabel>
-            </View>
-            <View>
-              <Card />
-              <CardLabel>Game World</CardLabel>
-            </View>
-            <View>
-              <Card />
-              <CardLabel>Study Swipe</CardLabel>
-            </View>
-          </CardGrid>
+          {loadingIdeas ? (
+            <LoadingContainer>
+              <ActivityIndicator size="small" color={defaultColor.textColor} />
+            </LoadingContainer>
+          ) : myIdeas.length === 0 ? (
+            <EmptyText>작성한 게시물이 없습니다.</EmptyText>
+          ) : (
+            <IdeasScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingLeft: 0 }}
+            >
+              <IdeasContainer>
+                {myIdeas.map((idea) => (
+                  <IdeaCard
+                    key={idea.id}
+                    onPress={() => handleIdeaPress(idea.id)}
+                  >
+                    <IdeaThumbnail>
+                      {idea.image_uris?.[0] ? (
+                        <ThumbnailImage
+                          source={{ uri: idea.image_uris[0] }}
+                          resizeMode="cover"
+                        />
+                      ) : null}
+                    </IdeaThumbnail>
+                    <IdeaTitle numberOfLines={2}>{idea.title}</IdeaTitle>
+                  </IdeaCard>
+                ))}
+              </IdeasContainer>
+            </IdeasScrollView>
+          )}
         </Section>
 
         <Divider />
@@ -248,20 +330,7 @@ export default function Info() {
             </ViewAllButton>
           </SectionHeader>
 
-          <CardGrid>
-            <View>
-              <Card />
-              <CardLabel>Idea Market</CardLabel>
-            </View>
-            <View>
-              <Card />
-              <CardLabel>Game World</CardLabel>
-            </View>
-            <View>
-              <Card />
-              <CardLabel>Study Swipe</CardLabel>
-            </View>
-          </CardGrid>
+          <EmptyText>구매한 아이디어가 없습니다.</EmptyText>
         </Section>
 
         <Divider />

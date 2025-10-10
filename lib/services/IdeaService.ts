@@ -70,3 +70,97 @@ export async function getUserDisplayName(userId: string): Promise<string> {
     return "사용자";
   }
 }
+
+/**
+ * 현재 사용자의 게시물 가져오기
+ */
+export async function getMyIdeas(
+  limit?: number
+): Promise<{ data: IdeaDetail[]; error: string | null }> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { data: [], error: "로그인이 필요합니다." };
+    }
+
+    let query = supabase
+      .from("ideas")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("내 게시물 조회 오류:", error);
+      return { data: [], error: error.message };
+    }
+
+    return { data: data || [], error: null };
+  } catch (error) {
+    console.error("내 게시물 조회 오류:", error);
+    return {
+      data: [],
+      error: error instanceof Error ? error.message : "알 수 없는 오류",
+    };
+  }
+}
+
+/**
+ * 아이디어 삭제
+ */
+export async function deleteIdea(
+  ideaId: string
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const { error } = await supabase.from("ideas").delete().eq("id", ideaId);
+
+    if (error) {
+      console.error("아이디어 삭제 오류:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    console.error("아이디어 삭제 오류:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "알 수 없는 오류",
+    };
+  }
+}
+
+/**
+ * 아이디어 수정
+ */
+export async function updateIdea(
+  ideaId: string,
+  updates: Partial<IdeaDetail>
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const { error } = await supabase
+      .from("ideas")
+      .update(updates)
+      .eq("id", ideaId);
+
+    if (error) {
+      console.error("아이디어 수정 오류:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    console.error("아이디어 수정 오류:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "알 수 없는 오류",
+    };
+  }
+}
