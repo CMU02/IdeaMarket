@@ -18,6 +18,7 @@ import { MainStackList } from "../navigations/MainStack";
 import ImageCarousel from "../components/detail/ImageCarousel";
 import CommentItem, { CommentData } from "../components/detail/CommentItem";
 import CommentInput from "../components/detail/CommentInput";
+import PurchaseModal from "../components/PurchaseModal";
 import {
   getIdeaById,
   getUserDisplayName,
@@ -181,6 +182,7 @@ export default function Detail() {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [authorName, setAuthorName] = useState("작성자");
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   const ideaId = route.params?.ideaId;
 
@@ -257,7 +259,16 @@ export default function Detail() {
   };
 
   const handlePurchase = () => {
-    Alert.alert("구매하기", "구매 기능은 준비 중입니다.");
+    if (idea?.is_free) {
+      Alert.alert("무료 아이디어", "무료 아이디어는 구매가 필요하지 않습니다.");
+      return;
+    }
+    setShowPurchaseModal(true);
+  };
+
+  const handlePurchaseRequest = () => {
+    setShowPurchaseModal(false);
+    Alert.alert("구매 요청", "구매 요청이 완료되었습니다.");
   };
 
   const handleBack = () => {
@@ -356,6 +367,13 @@ export default function Detail() {
         </ContentContainer>
 
         <CommentInput onSend={handleSendComment} />
+
+        <PurchaseModal
+          visible={showPurchaseModal}
+          onClose={() => setShowPurchaseModal(false)}
+          onRequest={handlePurchaseRequest}
+          price={idea?.price || 0}
+        />
       </Container>
     </KeyboardAvoidingView>
   );
