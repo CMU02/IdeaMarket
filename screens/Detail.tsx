@@ -19,16 +19,19 @@ import ImageCarousel from "../components/detail/ImageCarousel";
 import CommentItem, { CommentData } from "../components/detail/CommentItem";
 import CommentInput from "../components/detail/CommentInput";
 import PurchaseModal from "../components/PurchaseModal";
+import IdeaOptionsModal from "../components/IdeaOptionsModal";
 import {
   getIdeaById,
   getUserDisplayName,
   IdeaDetail,
+  deleteIdea,
 } from "../lib/services/IdeaService";
 import {
   getCommentsByIdeaId,
   createComment,
   getCommentAuthorName,
 } from "../lib/services/CommentService";
+import { supabase } from "../lib/Supabase";
 
 const Container = styled(View)<{ paddingBottom: number }>`
   flex: 1;
@@ -183,6 +186,8 @@ export default function Detail() {
   const [loading, setLoading] = useState(true);
   const [authorName, setAuthorName] = useState("작성자");
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [isMyIdea, setIsMyIdea] = useState(false);
 
   const ideaId = route.params?.ideaId;
 
@@ -203,6 +208,12 @@ export default function Detail() {
       }
 
       setIdea(data);
+
+      // 현재 사용자 확인
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setIsMyIdea(user?.id === data.user_id);
 
       // 작성자 이름 가져오기
       const name = await getUserDisplayName(data.user_id);
@@ -279,6 +290,58 @@ export default function Detail() {
     navigation.navigate("BottomTab");
   };
 
+  const handleOptions = () => {
+    setShowOptionsModal(true);
+  };
+
+  const handleEdit = () => {
+    setShowOptionsModal(false);
+    Alert.alert("알림", "수정 기능은 준비 중입니다.");
+  };
+
+  const handleDelete = () => {
+    setShowOptionsModal(false);
+    Alert.alert("삭제 확인", "정말로 이 아이디어를 삭제하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "삭제",
+        style: "destructive",
+        onPress: async () => {
+          const result = await deleteIdea(ideaId);
+          if (result.success) {
+            Alert.alert("완료", "아이디어가 삭제되었습니다.", [
+              {
+                text: "확인",
+                onPress: () => navigation.goBack(),
+              },
+            ]);
+          } else {
+            Alert.alert("오류", result.error || "삭제에 실패했습니다.");
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleShare = () => {
+    setShowOptionsModal(false);
+    Alert.alert("알림", "공유 기능은 준비 중입니다.");
+  };
+
+  const handleReport = () => {
+    setShowOptionsModal(false);
+    Alert.alert("신고하기", "이 게시물을 신고하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "신고",
+        style: "destructive",
+        onPress: () => {
+          Alert.alert("완료", "신고가 접수되었습니다.");
+        },
+      },
+    ]);
+  };
+
   if (loading || !idea) {
     return (
       <Container paddingBottom={bottom}>
@@ -308,7 +371,7 @@ export default function Detail() {
             <Ionicons name="home" size={24} color="white" />
           </HeaderButton>
           <View style={{ flex: 1 }} />
-          <HeaderButton>
+          <HeaderButton onPress={handleOptions}>
             <Ionicons name="ellipsis-vertical" size={20} color="white" />
           </HeaderButton>
         </Header>
@@ -373,6 +436,16 @@ export default function Detail() {
           onClose={() => setShowPurchaseModal(false)}
           onRequest={handlePurchaseRequest}
           price={idea?.price || 0}
+        />
+
+        <IdeaOptionsModal
+          visible={showOptionsModal}
+          onClose={() => setShowOptionsModal(false)}
+          onEdit={isMyIdea ? handleEdit : undefined}
+          onDelete={isMyIdea ? handleDelete : undefined}
+          onShare={!isMyIdea ? handleShare : undefined}
+          onReport={!isMyIdea ? handleReport : undefined}
+          isMyIdea={isMyIdea}
         />
       </Container>
     </KeyboardAvoidingView>
