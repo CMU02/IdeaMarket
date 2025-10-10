@@ -50,12 +50,14 @@ interface AIContentGeneratorProps {
   value: string;
   onChange: (text: string) => void;
   onAIGenerate: () => void;
+  isGenerating?: boolean;
 }
 
 export default function AIContentGenerator({
   value,
   onChange,
   onAIGenerate,
+  isGenerating = false,
 }: AIContentGeneratorProps) {
   return (
     <Container>
@@ -69,9 +71,11 @@ export default function AIContentGenerator({
         multiline
       />
       <AIButtonContainer>
-        <AIButton onPress={onAIGenerate}>
+        <AIButton onPress={onAIGenerate} disabled={isGenerating}>
           <Ionicons name="sparkles" size={18} color="#ffffff" />
-          <AIButtonText>AI 글 작성하기</AIButtonText>
+          <AIButtonText>
+            {isGenerating ? "AI 생성 중..." : "AI 글 작성하기"}
+          </AIButtonText>
         </AIButton>
       </AIButtonContainer>
     </Container>

@@ -24,6 +24,7 @@ import { MainStackList } from "../navigations/MainStack";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { uploadIdea } from "../lib/services/Upload";
 import { convertHeicToJpg, isHeicImage } from "../utils/imageConverter";
+import { generateIdeaContent } from "../utils/openai";
 
 const Container = styled(View)`
   flex: 1;
@@ -76,14 +77,45 @@ export default function NewIdea() {
   const [tags, setTags] = useState<string[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleAIGenerate = () => {
-    console.log("AI 글 작성하기:", content);
-    // TODO: AI 글 작성 API 호출
+  const handleAIGenerate = async () => {
+    // 유효성 검사
+    if (!title.trim()) {
+      Alert.alert("알림", "제목을 먼저 입력해주세요.");
+      return;
+    }
+
+    if (!shortDescription.trim()) {
+      Alert.alert("알림", "아이디어 간단 소개를 먼저 입력해주세요.");
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const result = await generateIdeaContent({
+        title: title.trim(),
+        shortDescription: shortDescription.trim(),
+        existingContent: content.trim() || undefined,
+      });
+
+      if (result.success && result.content) {
+        setContent(result.content);
+        Alert.alert("완료", "AI가 소개글을 생성했습니다!");
+      } else {
+        Alert.alert("오류", result.error || "AI 생성에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("AI 생성 오류:", error);
+      Alert.alert("오류", "AI 글 생성 중 오류가 발생했습니다.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleAddTag = (tag: string) => {
@@ -260,6 +292,7 @@ export default function NewIdea() {
             value={content}
             onChange={setContent}
             onAIGenerate={handleAIGenerate}
+            isGenerating={isGenerating}
           />
 
           <TagInput
