@@ -44,6 +44,14 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your camera</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>선택한 이미지를 저장하기 위해 사진 라이브러리 접근이 필요합니다.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>아이디어에 이미지를 추가하기 위해 사진 라이브러리 접근이 필요합니다.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
@@ -72,9 +80,5 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>아이디어에 이미지를 추가하기 위해 사진 라이브러리 접근이 필요합니다.</string>
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>선택한 이미지를 저장하기 위해 사진 라이브러리 접근이 필요합니다.</string>
   </dict>
 </plist>

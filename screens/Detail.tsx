@@ -25,13 +25,21 @@ import {
   getUserDisplayName,
   IdeaDetail,
   deleteIdea,
+  checkIdeaAccess,
 } from "../lib/services/IdeaService";
 import {
   getCommentsByIdeaId,
   createComment,
   getCommentAuthorName,
 } from "../lib/services/CommentService";
+import {
+  getPurchaseRequestCount,
+  hasPurchaseRequest,
+  createPurchaseRequest,
+} from "../lib/services/PurchaseService";
 import { supabase } from "../lib/Supabase";
+import NotificationBadge from "../components/common/NotificationBadge";
+import { showSuccessToast, showErrorToast } from "../utils/toast";
 
 const Container = styled(View)<{ paddingBottom: number }>`
   flex: 1;
@@ -135,11 +143,38 @@ const Description = styled(Text)`
   padding: 0 16px 20px 16px;
 `;
 
-const PrivateText = styled(Text)`
-  font-size: 14px;
-  color: #999;
-  padding: 0 16px 20px 16px;
-  font-style: italic;
+const LockedContentContainer = styled(View)`
+  padding: 60px 16px;
+  margin: 0 16px 20px 16px;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #ddd;
+  justify-content: center;
+  align-items: center;
+`;
+
+const LockIconContainer = styled(View)`
+  background-color: rgba(9, 24, 42, 0.9);
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+
+const BlurMessage = styled(Text)`
+  font-size: 16px;
+  font-weight: 600;
+  color: #09182a;
+  text-align: center;
+  margin-bottom: 4px;
+`;
+
+const BlurSubMessage = styled(Text)`
+  font-size: 13px;
+  color: #666;
+  text-align: center;
 `;
 
 const CommentsSection = styled(View)`
@@ -153,8 +188,30 @@ const Divider = styled(View)`
   margin: 12px 0;
 `;
 
-const PurchaseButton = styled(TouchableOpacity)`
-  background-color: #09182a;
+const PurchaseRequestCountContainer = styled(View)`
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f5f5f5;
+  margin: 0 16px;
+  border-radius: 8px;
+  gap: 8px;
+`;
+
+const PurchaseRequestCountText = styled(Text)`
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+`;
+
+const PurchaseRequestCountNumber = styled(Text)`
+  font-size: 14px;
+  color: #09182a;
+  font-weight: 700;
+`;
+
+const PurchaseButton = styled(TouchableOpacity)<{ disabled?: boolean }>`
+  background-color: ${(props) => (props.disabled ? "#ccc" : "#09182a")};
   margin: 20px 16px;
   padding: 16px;
   border-radius: 12px;
@@ -188,6 +245,13 @@ export default function Detail() {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [isMyIdea, setIsMyIdea] = useState(false);
+  const [purchaseRequestCount, setPurchaseRequestCount] = useState(0);
+  const [purchaseRequestStatus, setPurchaseRequestStatus] = useState<
+    string | null
+  >(null);
+  const [hasRequest, setHasRequest] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [hasAccess, setHasAccess] = useState(false);
 
   const ideaId = route.params?.ideaId;
 
@@ -198,11 +262,56 @@ export default function Detail() {
     }
   }, [ideaId]);
 
+  // idea와 isMyIdea가 설정된 후 구매 요청 정보 조회
+  useEffect(() => {
+    if (idea && ideaId) {
+      fetchPurchaseRequestInfo();
+    }
+  }, [idea, isMyIdea, ideaId]);
+
+  // 실시간 구매 요청 수 업데이트 구독
+  // Requirements: 6.4 - 구매 요청 생성/승인/거절 시 실시간 UI 업데이트
+  useEffect(() => {
+    if (!ideaId) return;
+
+    const channel = supabase
+      .channel(`purchase-requests-detail-${ideaId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "purchase_requests",
+          filter: `idea_id=eq.${ideaId}`,
+        },
+        () => {
+          // 구매 요청 변경 시 정보 다시 조회
+          fetchPurchaseRequestInfo();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ideaId]);
+
   const fetchIdeaDetail = async () => {
     try {
+      // 접근 권한 확인
+      const accessCheck = await checkIdeaAccess(ideaId);
+      if (!accessCheck.hasAccess) {
+        showErrorToast(
+          accessCheck.reason || "이 아이디어에 접근할 수 없습니다."
+        );
+        navigation.goBack();
+        setLoading(false);
+        return;
+      }
+
       const data = await getIdeaById(ideaId);
       if (!data) {
-        Alert.alert("오류", "아이디어를 찾을 수 없습니다.");
+        showErrorToast("아이디어를 찾을 수 없습니다.");
         navigation.goBack();
         return;
       }
@@ -220,7 +329,7 @@ export default function Detail() {
       setAuthorName(name);
     } catch (error) {
       console.error("아이디어 조회 오류:", error);
-      Alert.alert("오류", "아이디어를 불러올 수 없습니다.");
+      showErrorToast("아이디어를 불러올 수 없습니다.");
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -259,27 +368,88 @@ export default function Detail() {
     }
   };
 
+  const fetchPurchaseRequestInfo = async () => {
+    try {
+      // 구매 요청 수 조회 (Requirement 6.1, 6.2)
+      const count = await getPurchaseRequestCount(ideaId);
+      setPurchaseRequestCount(count);
+
+      // 사용자의 구매 요청 여부 확인 (Requirement 1.4)
+      const requestInfo = await hasPurchaseRequest(ideaId);
+      setHasRequest(requestInfo.hasRequest);
+      setPurchaseRequestStatus(requestInfo.status || null);
+
+      // 콘텐츠 접근 권한 확인 (Requirement 5.3, 5.4, 5.5)
+      // 무료 아이디어, 자신의 아이디어, 승인된 구매 요청이 있는 경우 접근 가능
+      const canAccess =
+        idea?.is_free ||
+        isMyIdea ||
+        (requestInfo.hasRequest && requestInfo.status === "approved");
+      setHasAccess(canAccess);
+    } catch (error) {
+      console.error("구매 요청 정보 조회 오류:", error);
+    }
+  };
+
   const handleSendComment = async (text: string) => {
     try {
+      setSubmitting(true);
       await createComment(ideaId, text);
       await fetchComments();
+      showSuccessToast("댓글이 작성되었습니다.");
     } catch (error) {
       console.error("댓글 작성 오류:", error);
-      Alert.alert("오류", "댓글 작성에 실패했습니다.");
+      showErrorToast("댓글 작성에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handlePurchase = () => {
-    if (idea?.is_free) {
-      Alert.alert("무료 아이디어", "무료 아이디어는 구매가 필요하지 않습니다.");
+    // 자신의 게시물인 경우 (Requirement 1.2)
+    if (isMyIdea) {
+      showErrorToast("자신의 아이디어는 구매할 수 없습니다.");
       return;
     }
+
+    // 이미 구매 요청한 경우 (Requirement 1.4)
+    if (hasRequest) {
+      const statusText =
+        purchaseRequestStatus === "pending"
+          ? "승인 대기 중"
+          : purchaseRequestStatus === "approved"
+          ? "승인됨"
+          : purchaseRequestStatus === "rejected"
+          ? "거절됨"
+          : "처리 중";
+      showErrorToast(`이미 구매 요청한 아이디어입니다. (상태: ${statusText})`);
+      return;
+    }
+
     setShowPurchaseModal(true);
   };
 
-  const handlePurchaseRequest = () => {
-    setShowPurchaseModal(false);
-    Alert.alert("구매 요청", "구매 요청이 완료되었습니다.");
+  const handlePurchaseRequest = async () => {
+    try {
+      setShowPurchaseModal(false);
+      setSubmitting(true);
+
+      // 구매 요청 생성 (Requirement 1.1)
+      const result = await createPurchaseRequest(ideaId);
+
+      if (result.success) {
+        showSuccessToast("구매 요청이 완료되었습니다.");
+        // 구매 요청 정보 다시 조회
+        await fetchPurchaseRequestInfo();
+      } else {
+        showErrorToast(result.error || "구매 요청에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("구매 요청 오류:", error);
+      showErrorToast("구매 요청 중 오류가 발생했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -307,16 +477,15 @@ export default function Detail() {
         text: "삭제",
         style: "destructive",
         onPress: async () => {
+          setSubmitting(true);
           const result = await deleteIdea(ideaId);
+          setSubmitting(false);
+
           if (result.success) {
-            Alert.alert("완료", "아이디어가 삭제되었습니다.", [
-              {
-                text: "확인",
-                onPress: () => navigation.goBack(),
-              },
-            ]);
+            showSuccessToast("아이디어가 삭제되었습니다.");
+            navigation.goBack();
           } else {
-            Alert.alert("오류", result.error || "삭제에 실패했습니다.");
+            showErrorToast(result.error || "삭제에 실패했습니다.");
           }
         },
       },
@@ -371,6 +540,7 @@ export default function Detail() {
             <Ionicons name="home" size={24} color="white" />
           </HeaderButton>
           <View style={{ flex: 1 }} />
+          <NotificationBadge color="#fff" size={24} />
           <HeaderButton onPress={handleOptions}>
             <Ionicons name="ellipsis-vertical" size={20} color="white" />
           </HeaderButton>
@@ -402,8 +572,29 @@ export default function Detail() {
             <SectionTitle>아이디어 소개</SectionTitle>
           </SectionHeader>
 
-          <Description>{idea.content}</Description>
-          {!idea.is_free && <PrivateText>(비공개)</PrivateText>}
+          {/* 유료 아이디어이고 접근 권한이 없는 경우 잠금 표시 (Requirement 5.4) */}
+          {!idea.is_free && !hasAccess ? (
+            <LockedContentContainer>
+              <LockIconContainer>
+                <Ionicons name="lock-closed" size={28} color="white" />
+              </LockIconContainer>
+              <BlurMessage>구매 후 확인 가능합니다</BlurMessage>
+              <BlurSubMessage>아래 구매하기 버튼을 눌러주세요</BlurSubMessage>
+            </LockedContentContainer>
+          ) : (
+            <Description>{idea.content}</Description>
+          )}
+
+          {/* 구매 요청 수 표시 (Requirement 6.1, 6.2) */}
+          {purchaseRequestCount > 0 && !isMyIdea && (
+            <PurchaseRequestCountContainer>
+              <Ionicons name="people" size={16} color="#666" />
+              <PurchaseRequestCountText>구매 요청</PurchaseRequestCountText>
+              <PurchaseRequestCountNumber>
+                {purchaseRequestCount}명
+              </PurchaseRequestCountNumber>
+            </PurchaseRequestCountContainer>
+          )}
 
           <CommentsSection>
             <SectionHeader style={{ padding: 0 }}>
@@ -424,9 +615,29 @@ export default function Detail() {
             ))}
           </CommentsSection>
 
-          <PurchaseButton onPress={handlePurchase}>
-            <PurchaseButtonText>구매하기</PurchaseButtonText>
-          </PurchaseButton>
+          {/* 구매하기 버튼 (Requirement 1.2, 1.4) */}
+          {!isMyIdea && (
+            <PurchaseButton
+              onPress={handlePurchase}
+              disabled={hasRequest || submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <PurchaseButtonText>
+                  {hasRequest
+                    ? purchaseRequestStatus === "pending"
+                      ? "요청 중"
+                      : purchaseRequestStatus === "approved"
+                      ? "구매 완료"
+                      : purchaseRequestStatus === "rejected"
+                      ? "거절됨"
+                      : "요청 중"
+                    : "구매하기"}
+                </PurchaseButtonText>
+              )}
+            </PurchaseButton>
+          )}
         </ContentContainer>
 
         <CommentInput onSend={handleSendComment} />
@@ -436,6 +647,8 @@ export default function Detail() {
           onClose={() => setShowPurchaseModal(false)}
           onRequest={handlePurchaseRequest}
           price={idea?.price || 0}
+          ideaId={ideaId}
+          loading={submitting}
         />
 
         <IdeaOptionsModal

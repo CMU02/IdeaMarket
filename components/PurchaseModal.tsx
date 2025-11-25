@@ -1,5 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import {
+  Modal,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+} from "react-native";
 import styled from "styled-components";
 import PrimaryButton from "./social-auth-buttons/PrimaryButton";
 import { defaultColor } from "../utils/Color";
@@ -10,6 +16,8 @@ interface PurchaseModalProps {
   onClose: () => void;
   onRequest: () => void;
   price: number;
+  ideaId: string;
+  loading?: boolean;
 }
 
 const ModalOverlay = styled(View)`
@@ -63,13 +71,15 @@ const ButtonContainer = styled(View)`
   margin: 0 -12px;
   padding: 0 12px;
 `;
-const RequestButton = styled(TouchableOpacity)`
+const RequestButton = styled(TouchableOpacity)<{ disabled?: boolean }>`
   width: 100%;
-  background-color: ${defaultColor.mainColor};
+  background-color: ${(props) =>
+    props.disabled ? "#cccccc" : defaultColor.mainColor};
   padding: 20px 0px;
   justify-content: center;
   align-items: center;
   border-radius: 10px;
+  opacity: ${(props) => (props.disabled ? 0.7 : 1)};
 `;
 const RequestText = styled(Text)`
   color: #fff;
@@ -82,6 +92,8 @@ export default function PurchaseModal({
   onClose,
   onRequest,
   price,
+  ideaId,
+  loading = false,
 }: PurchaseModalProps) {
   const formattedPrice = price.toLocaleString("ko-KR");
 
@@ -109,8 +121,12 @@ export default function PurchaseModal({
           </InfoBox>
 
           <ButtonContainer>
-            <RequestButton onPress={onRequest}>
-              <RequestText>요청하기</RequestText>
+            <RequestButton onPress={onRequest} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <RequestText>요청하기</RequestText>
+              )}
             </RequestButton>
           </ButtonContainer>
         </ModalContainer>

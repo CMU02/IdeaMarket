@@ -4,6 +4,7 @@ import styled from "styled-components/native";
 import { Ionicons } from "@expo/vector-icons";
 import { defaultColor } from "../../utils/Color";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import NotificationBadge from "../common/NotificationBadge";
 
 const HeaderContainer = styled(View)`
   flex-direction: row;
@@ -65,7 +66,6 @@ interface HomeHeaderProps {
   selectedCategory: string;
   onFilterPress: () => void;
   onSearchPress: () => void;
-  onNotificationPress: () => void;
   onRefresh?: () => void;
   onWritePress?: () => void;
 }
@@ -74,7 +74,6 @@ export default function HomeHeader({
   selectedCategory,
   onFilterPress,
   onSearchPress,
-  onNotificationPress,
   onRefresh,
   onWritePress,
 }: HomeHeaderProps) {
@@ -117,9 +116,7 @@ export default function HomeHeader({
           <IconButton onPress={onSearchPress}>
             <Ionicons name="search" size={24} color="#fff" />
           </IconButton>
-          <IconButton onPress={onNotificationPress}>
-            <Ionicons name="notifications-outline" size={24} color="#fff" />
-          </IconButton>
+          <NotificationBadge color="#fff" size={24} />
           <IconButton onPress={handleMenuPress}>
             <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
           </IconButton>

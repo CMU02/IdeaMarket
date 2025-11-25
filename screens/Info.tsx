@@ -17,6 +17,7 @@ import { MainStackList } from "../navigations/MainStack";
 import { defaultColor } from "../utils/Color";
 import { supabase } from "../lib/Supabase";
 import { getMyIdeas, IdeaDetail } from "../lib/services/IdeaService";
+import NotificationBadge from "../components/common/NotificationBadge";
 
 const Container = styled(View)`
   flex: 1;
@@ -26,12 +27,20 @@ const Container = styled(View)`
 const Header = styled(View)<{ paddingTop: number }>`
   background-color: ${defaultColor.textColor};
   padding: ${(props) => props.paddingTop}px 16px 16px 16px;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
 `;
 
 const HeaderTitle = styled(Text)`
   font-size: 20px;
   font-family: "Paperlogy-SemiBold";
   color: #ffffff;
+`;
+
+const RightSection = styled(View)`
+  flex-direction: row;
+  align-items: center;
 `;
 
 const Content = styled(ScrollView)`
@@ -229,7 +238,7 @@ export default function Info() {
   };
 
   const handleViewAllPosts = () => {
-    navigation.navigate("MyIdeas" as any);
+    navigation.navigate("MyIdeas");
   };
 
   const handleIdeaPress = (ideaId: string) => {
@@ -244,6 +253,9 @@ export default function Info() {
     <Container>
       <Header paddingTop={top}>
         <HeaderTitle>내 정보</HeaderTitle>
+        <RightSection>
+          <NotificationBadge color="#fff" size={24} />
+        </RightSection>
       </Header>
 
       <Content>

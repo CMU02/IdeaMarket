@@ -3,12 +3,16 @@ import RootBottomTab from "./RootBottomTab";
 import NewIdea from "../screens/NewIdea";
 import Detail from "../screens/Detail";
 import MyIdeas from "../screens/MyIdeas";
+import PurchaseRequestDetail from "../screens/PurchaseRequestDetail";
+import NotificationScreen from "../screens/NotificationScreen";
 
 export type MainStackList = {
   BottomTab: undefined;
   NewIdea: undefined;
   Detail: { ideaId: string };
   MyIdeas: undefined;
+  PurchaseRequestDetail: { requestId: string };
+  NotificationScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<MainStackList>();
@@ -24,6 +28,11 @@ export default function MainStack() {
       <Stack.Screen name="NewIdea" component={NewIdea} />
       <Stack.Screen name="Detail" component={Detail} />
       <Stack.Screen name="MyIdeas" component={MyIdeas} />
+      <Stack.Screen
+        name="PurchaseRequestDetail"
+        component={PurchaseRequestDetail}
+      />
+      <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
     </Stack.Navigator>
   );
 }

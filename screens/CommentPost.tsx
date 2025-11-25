@@ -4,6 +4,7 @@ import styled from "styled-components/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { defaultColor } from "../utils/Color";
+import NotificationBadge from "../components/common/NotificationBadge";
 
 const Container = styled(View)`
   flex: 1;
@@ -19,6 +20,11 @@ const HeaderContainer = styled(View)`
 `;
 
 const LeftSection = styled(View)`
+  flex-direction: row;
+  align-items: center;
+`;
+
+const RightSection = styled(View)`
   flex-direction: row;
   align-items: center;
 `;
@@ -47,6 +53,9 @@ export default function CommentPost() {
         <LeftSection>
           <HeaderTitle>댓글 단 글</HeaderTitle>
         </LeftSection>
+        <RightSection>
+          <NotificationBadge color="#fff" size={24} />
+        </RightSection>
       </HeaderContainer>
 
       <ContentContainer>{/* TODO: 댓글 단 글 컨텐츠 추가 */}</ContentContainer>

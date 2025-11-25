@@ -67,11 +67,6 @@ export default function Home() {
     // TODO: 검색 화면으로 이동
   };
 
-  const handleNotificationPress = () => {
-    console.log("알림 버튼 클릭");
-    // TODO: 알림 화면으로 이동
-  };
-
   const handleRefresh = () => {
     loadIdeas();
   };
@@ -91,7 +86,6 @@ export default function Home() {
           selectedCategory={selectedCategory}
           onFilterPress={handleFilterPress}
           onSearchPress={handleSearchPress}
-          onNotificationPress={handleNotificationPress}
           onRefresh={handleRefresh}
           onWritePress={handleWritePress}
         />
@@ -108,7 +102,6 @@ export default function Home() {
         selectedCategory={selectedCategory}
         onFilterPress={handleFilterPress}
         onSearchPress={handleSearchPress}
-        onNotificationPress={handleNotificationPress}
         onRefresh={handleRefresh}
         onWritePress={handleWritePress}
       />
